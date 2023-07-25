@@ -1,9 +1,10 @@
 import type { SVGProps } from 'react'
+import type { TodoItem } from '@/pages'
 
 import * as Checkbox from '@radix-ui/react-checkbox'
+import { useAutoAnimate } from '@formkit/auto-animate/react'
 
 import { api } from '@/utils/client/api'
-
 /**
  * QUESTION 3:
  * -----------
@@ -63,28 +64,80 @@ import { api } from '@/utils/client/api'
  *  - https://auto-animate.formkit.com
  */
 
-export const TodoList = () => {
-  const { data: todos = [] } = api.todo.getAll.useQuery({
-    statuses: ['completed', 'pending'],
-  })
+// type Task = inferProcedureOutput<AppRouter['todo']['getAll']>[number]
+interface TodoList {
+  todoListass: Array<TodoItem>
+}
+export const TodoList: React.FC<TodoList> = ({ todoListass }: TodoList) => {
+  const [parent] = useAutoAnimate()
+
+  const apiContext = api.useContext()
+  // const { data: todos = [] } = api.todo.getAll.useQuery({
+  //   statuses: ['completed', 'pending'],
+  // })
+  const { mutate: deleteTodo, isLoading: isDeleteTodo } =
+    api.todo.delete.useMutation({
+      onSuccess: () => {
+        apiContext.todo.getAll.refetch()
+      },
+    })
+  const { mutate: updateTodoStatus, isLoading: isUpdateTodo } =
+    api.todoStatus.update.useMutation({
+      onSuccess: () => {
+        apiContext.todo.getAll.refetch()
+      },
+    })
 
   return (
-    <ul className="grid grid-cols-1 gap-y-3">
-      {todos.map((todo) => (
+    <ul ref={parent} className="grid grid-cols-1 gap-y-3">
+      {todoListass.map((todo) => (
         <li key={todo.id}>
-          <div className="flex items-center rounded-12 border border-gray-200 px-4 py-3 shadow-sm">
-            <Checkbox.Root
-              id={String(todo.id)}
-              className="flex h-6 w-6 items-center justify-center rounded-6 border border-gray-300 focus:border-gray-700 focus:outline-none data-[state=checked]:border-gray-700 data-[state=checked]:bg-gray-700"
-            >
-              <Checkbox.Indicator>
-                <CheckIcon className="h-4 w-4 text-white" />
-              </Checkbox.Indicator>
-            </Checkbox.Root>
+          <div
+            className={`flex items-center justify-between rounded-12 border border-gray-200 px-4 py-3 shadow-sm ${
+              todo.status === 'completed' ? 'bg-gray-200' : ''
+            }`}
+          >
+            <div className="flex items-center">
+              <Checkbox.Root
+                value={todo.status}
+                disabled={isUpdateTodo}
+                defaultChecked={todo.status === 'completed' ? true : false}
+                onCheckedChange={(event) => {
+                  updateTodoStatus({
+                    status: `${event ? 'completed' : 'pending'}`,
+                    todoId: todo.id,
+                  })
+                }}
+                id={String(todo.id)}
+                className="flex h-6 w-6 items-center justify-center rounded-6 border border-gray-300 focus:border-gray-700 focus:outline-none data-[state=checked]:border-gray-700 data-[state=checked]:bg-gray-700"
+              >
+                <Checkbox.Indicator>
+                  <CheckIcon className="h-4 w-4 text-white" />
+                </Checkbox.Indicator>
+              </Checkbox.Root>
 
-            <label className="block pl-3 font-medium" htmlFor={String(todo.id)}>
-              {todo.body}
-            </label>
+              <label
+                className={`block pl-3 font-medium ${
+                  todo.status === 'completed'
+                    ? 'text-gray-700 line-through'
+                    : 'none text-gray-500'
+                }`}
+                htmlFor={String(todo.id)}
+              >
+                {todo.body}
+              </label>
+            </div>
+            <button
+              type="button"
+              disabled={isDeleteTodo}
+              onClick={() => {
+                deleteTodo({
+                  id: todo.id,
+                })
+              }}
+            >
+              <XMarkIcon className="h-8 w-8 text-gray-700" />
+            </button>
           </div>
         </li>
       ))}
